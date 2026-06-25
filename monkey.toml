@@ -17,4 +17,4 @@ hdmi2 = 18
 # combo -> input, for `monkey listen`. ctrl/alt/shift/cmd plus a key.
 # With a KM switch, bind each machine to the other one's input (see README).
 [hotkeys]
-"ctrl+alt+10" = "usbc"
+"ctrl+alt+f10" = "usbc"
