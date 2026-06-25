@@ -519,7 +519,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "core-foundation-sys",
  "ddc-hi",
  "global-hotkey",
  "serde",

@@ -41,17 +41,18 @@ pub fn listen(config: &Config, model: Option<&str>) -> Result<()> {
     }
     println!("listening for {} hotkey(s), ctrl+c to quit", bindings.len());
 
-    run(|id| {
-        if let Some(b) = bindings.get(&id) {
-            // re-pick the display; it may have dropped after sleep
-            let result = monitor::open(model).and_then(|mut m| {
-                m.set_input(b.value)?;
-                Ok(m.label)
-            });
-            match result {
-                Ok(label) => println!("{} -> {} ({}) on {label}", b.combo, b.target, b.value),
-                Err(e) => eprintln!("{} -> {} failed: {e:#}", b.combo, b.target),
-            }
+    // owned so the closure can outlive `listen` (macOS keeps it in a callback)
+    let model = model.map(str::to_owned);
+    run(move |id| {
+        let Some(b) = bindings.get(&id) else { return };
+        // re-pick the display; it may have dropped after sleep
+        let result = monitor::open(model.as_deref()).and_then(|mut m| {
+            m.set_input(b.value)?;
+            Ok(m.label)
+        });
+        match result {
+            Ok(label) => println!("{} -> {} ({}) on {label}", b.combo, b.target, b.value),
+            Err(e) => eprintln!("{} -> {} failed: {e:#}", b.combo, b.target),
         }
     })
 }
@@ -76,7 +77,7 @@ fn hide_console_if_orphan() {
 }
 
 #[cfg(windows)]
-fn run<F: FnMut(u32)>(mut on_press: F) -> Result<()> {
+fn run<F: Fn(u32) + Send + Sync + 'static>(dispatch: F) -> Result<()> {
     // pump this thread's messages so global-hotkey's hidden window proc runs
     use windows_sys::Win32::UI::WindowsAndMessaging::{DispatchMessageW, GetMessageW, MSG};
 
@@ -92,29 +93,46 @@ fn run<F: FnMut(u32)>(mut on_press: F) -> Result<()> {
         }
         while let Ok(e) = events.try_recv() {
             if e.state == HotKeyState::Pressed {
-                on_press(e.id);
+                dispatch(e.id);
             }
         }
     }
 }
 
 #[cfg(target_os = "macos")]
-fn run<F: FnMut(u32)>(mut on_press: F) -> Result<()> {
-    // run the main loop in slices; the Carbon handler fills the channel
-    use core_foundation_sys::runloop::{CFRunLoopRunInMode, kCFRunLoopDefaultMode};
-
-    let events = GlobalHotKeyEvent::receiver();
-    loop {
-        unsafe { CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.2, 0) };
-        while let Ok(e) = events.try_recv() {
-            if e.state == HotKeyState::Pressed {
-                on_press(e.id);
-            }
-        }
+fn run<F: Fn(u32) + Send + Sync + 'static>(dispatch: F) -> Result<()> {
+    // Carbon hotkeys reach the application event target, which only dispatches
+    // under the app event loop, so a bare CFRunLoop never delivers them. Become a
+    // UI-agent process (no Dock icon), then run that loop and take events via the
+    // crate's callback (which the run loop, not our channel, drives).
+    #[repr(C)]
+    struct ProcessSerialNumber {
+        high: u32,
+        low: u32,
     }
+    const K_CURRENT_PROCESS: u32 = 2;
+    const TO_UI_ELEMENT: u32 = 4;
+    unsafe extern "C" {
+        fn TransformProcessType(psn: *const ProcessSerialNumber, kind: u32) -> i32;
+        fn RunApplicationEventLoop();
+    }
+
+    let psn = ProcessSerialNumber {
+        high: 0,
+        low: K_CURRENT_PROCESS,
+    };
+    unsafe { TransformProcessType(&psn, TO_UI_ELEMENT) };
+
+    GlobalHotKeyEvent::set_event_handler(Some(move |e: GlobalHotKeyEvent| {
+        if e.state == HotKeyState::Pressed {
+            dispatch(e.id);
+        }
+    }));
+    unsafe { RunApplicationEventLoop() };
+    Ok(())
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
-fn run<F: FnMut(u32)>(_on_press: F) -> Result<()> {
+fn run<F: Fn(u32) + Send + Sync + 'static>(_dispatch: F) -> Result<()> {
     bail!("`monkey listen` only works on Windows and macOS");
 }
