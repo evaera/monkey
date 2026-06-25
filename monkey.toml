@@ -1,0 +1,20 @@
+# Found by searching up from the working directory to the filesystem root
+
+# EDID model substring used to pick the display. `monkey list` shows the names.
+model = "MPG"
+
+# What `monkey toggle` flips between.
+toggle = ["dp", "usbc"]
+
+# name -> VCP 0x60 value. 15 = DisplayPort is confirmed; the rest are guesses
+# until checked with `monkey list`.
+[inputs]
+dp = 15
+usbc = 16
+hdmi1 = 17
+hdmi2 = 18
+
+# combo -> input, for `monkey listen`. ctrl/alt/shift/cmd plus a key.
+# With a KM switch, bind each machine to the other one's input (see README).
+[hotkeys]
+"ctrl+alt+10" = "usbc"
