@@ -1,4 +1,5 @@
 # monkey
+(mon-key)
 
 Switches an external monitor's active input over DDC/CI (VCP `0x60`). A single
 small binary for Windows and macOS, meant to replace flaky vendor OSD utilities.
