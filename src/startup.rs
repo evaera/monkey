@@ -1,8 +1,8 @@
 use anyhow::Result;
 use std::path::Path;
 
-pub fn install(exe: &Path, config: Option<&Path>) -> Result<String> {
-    platform::install(exe, config)
+pub fn install(exe: &Path, config: Option<&Path>, mode: &str) -> Result<String> {
+    platform::install(exe, config, mode)
 }
 
 pub fn uninstall() -> Result<String> {
@@ -23,12 +23,12 @@ mod platform {
         r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
     const VALUE: &str = "monkey";
 
-    pub fn install(exe: &Path, config: Option<&Path>) -> Result<String> {
+    pub fn install(exe: &Path, config: Option<&Path>, mode: &str) -> Result<String> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         let (run, _) = hkcu
             .create_subkey(RUN_KEY)
             .context("opening HKCU Run key")?;
-        run.set_value(VALUE, &command(exe, config))
+        run.set_value(VALUE, &command(exe, config, mode))
             .context("writing startup value")?;
         Ok(format!(r"HKCU\{RUN_KEY}\{VALUE}"))
     }
@@ -49,12 +49,13 @@ mod platform {
     }
 
     // quote each path in case it has spaces
-    fn command(exe: &Path, config: Option<&Path>) -> String {
+    fn command(exe: &Path, config: Option<&Path>, mode: &str) -> String {
         let mut s = format!("\"{}\"", exe.display());
         if let Some(c) = config {
             s.push_str(&format!(" --config \"{}\"", c.display()));
         }
-        s.push_str(" listen");
+        s.push(' ');
+        s.push_str(mode);
         s
     }
 
@@ -67,10 +68,11 @@ mod platform {
             let c = command(
                 Path::new(r"C:\a b\monkey.exe"),
                 Some(Path::new(r"C:\u\monkey.toml")),
+                "watch",
             );
             assert_eq!(
                 c,
-                r#""C:\a b\monkey.exe" --config "C:\u\monkey.toml" listen"#
+                r#""C:\a b\monkey.exe" --config "C:\u\monkey.toml" watch"#
             );
         }
     }
@@ -89,9 +91,9 @@ mod platform {
             .join("monkey.plist"))
     }
 
-    pub fn install(exe: &Path, config: Option<&Path>) -> Result<String> {
+    pub fn install(exe: &Path, config: Option<&Path>, mode: &str) -> Result<String> {
         let path = plist_path()?;
-        std::fs::write(&path, plist(exe, config))
+        std::fs::write(&path, plist(exe, config, mode))
             .with_context(|| format!("writing {}", path.display()))?;
         Ok(path.display().to_string())
     }
@@ -104,13 +106,13 @@ mod platform {
         Ok(path.display().to_string())
     }
 
-    fn plist(exe: &Path, config: Option<&Path>) -> String {
+    fn plist(exe: &Path, config: Option<&Path>, mode: &str) -> String {
         let mut args = vec![format!("        <string>{}</string>", exe.display())];
         if let Some(c) = config {
             args.push("        <string>--config</string>".to_string());
             args.push(format!("        <string>{}</string>", c.display()));
         }
-        args.push("        <string>listen</string>".to_string());
+        args.push(format!("        <string>{mode}</string>"));
         let args = args.join("\n");
         format!(
             r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -136,7 +138,7 @@ mod platform {
     use anyhow::{Result, bail};
     use std::path::Path;
 
-    pub fn install(_exe: &Path, _config: Option<&Path>) -> Result<String> {
+    pub fn install(_exe: &Path, _config: Option<&Path>, _mode: &str) -> Result<String> {
         bail!("`monkey startup` only works on Windows and macOS");
     }
 

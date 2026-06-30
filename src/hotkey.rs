@@ -16,8 +16,6 @@ pub fn listen(config: &Config, model: Option<&str>) -> Result<()> {
     if config.hotkeys.is_empty() {
         bail!("no [hotkeys] in monkey.toml, e.g. \"ctrl+alt+1\" = \"dp\"");
     }
-    #[cfg(windows)]
-    hide_console_if_orphan();
 
     let manager = GlobalHotKeyManager::new().context("starting the hotkey manager")?;
     let mut bindings: HashMap<u32, Binding> = HashMap::new();
@@ -55,25 +53,6 @@ pub fn listen(config: &Config, model: Option<&str>) -> Result<()> {
             Err(e) => eprintln!("{} -> {} failed: {e:#}", b.combo, b.target),
         }
     })
-}
-
-// Launched at logon from the registry, listen owns a fresh console window that
-// would otherwise stay open all session. If monkey is the only process on the
-// console (no parent terminal), hide it; from a real shell, leave output visible.
-#[cfg(windows)]
-fn hide_console_if_orphan() {
-    use windows_sys::Win32::System::Console::{GetConsoleProcessList, GetConsoleWindow};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
-
-    unsafe {
-        let mut pids = [0u32; 2];
-        if GetConsoleProcessList(pids.as_mut_ptr(), pids.len() as u32) == 1 {
-            let hwnd = GetConsoleWindow();
-            if !hwnd.is_null() {
-                ShowWindow(hwnd, SW_HIDE);
-            }
-        }
-    }
 }
 
 #[cfg(windows)]

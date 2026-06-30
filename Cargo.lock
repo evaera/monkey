@@ -236,8 +236,8 @@ dependencies = [
  "core-foundation-sys",
  "core-graphics",
  "ddc",
- "io-kit-sys",
- "mach2",
+ "io-kit-sys 0.4.1",
+ "mach2 0.4.3",
  "thiserror 1.0.69",
 ]
 
@@ -319,6 +319,12 @@ name = "foreign-types-shared"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
+
+[[package]]
+name = "futures-core"
+version = "0.3.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e3450815272ef58cec6d564423f6e755e25379b217b0bc688e295ba24df6b1d"
 
 [[package]]
 name = "gethostname"
@@ -409,7 +415,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "617ee6cf8e3f66f3b4ea67a4058564628cde41901316e19f559e14c7c72c5e7b"
 dependencies = [
  "core-foundation-sys",
- "mach2",
+ "mach2 0.4.3",
+]
+
+[[package]]
+name = "io-kit-sys"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06d3a048d09fbb6597dbf7c69f40d14df4a49487db1487191618c893fc3b1c26"
+dependencies = [
+ "core-foundation-sys",
+ "mach2 0.5.0",
 ]
 
 [[package]]
@@ -473,6 +489,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mach2"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a1b95cd5421ec55b445b5ae102f5ea0e768de1f82bd3001e11f426c269c3aea"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "mccs"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -521,6 +546,7 @@ dependencies = [
  "clap",
  "ddc-hi",
  "global-hotkey",
+ "nusb",
  "serde",
  "toml",
  "windows-sys 0.61.2",
@@ -534,6 +560,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05aec50c70fd288702bcd93284a8444607f3292dbdf2a30de5ea5dcdbe72287b"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "nusb"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "215a49c10e8cff30a0da93b258b21846c4e9242f7683748cfa8474fdc2e4d22b"
+dependencies = [
+ "core-foundation",
+ "core-foundation-sys",
+ "futures-core",
+ "io-kit-sys 0.5.0",
+ "linux-raw-sys",
+ "log",
+ "once_cell",
+ "rustix",
+ "slab",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -714,6 +758,12 @@ dependencies = [
  "serde",
  "yaml-rust",
 ]
+
+[[package]]
+name = "slab"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "strsim"

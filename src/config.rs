@@ -16,6 +16,36 @@ pub struct Config {
     pub toggle: Vec<String>,
     #[serde(default)]
     pub hotkeys: BTreeMap<String, String>,
+    #[serde(default)]
+    pub usb: Option<UsbWatch>,
+}
+
+/// `monkey watch`: switch input when a USB device connects/disconnects.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UsbWatch {
+    /// USB vendor:product in hex, e.g. "3297:1977".
+    pub device: String,
+    #[serde(default)]
+    pub on_connect: Option<String>,
+    #[serde(default)]
+    pub on_disconnect: Option<String>,
+}
+
+impl UsbWatch {
+    pub fn ids(&self) -> Result<(u16, u16)> {
+        let (v, p) = self.device.split_once(':').with_context(|| {
+            format!(
+                "`device` must be VID:PID, e.g. 3297:1977 (got '{}')",
+                self.device
+            )
+        })?;
+        let vid =
+            u16::from_str_radix(v.trim(), 16).with_context(|| format!("bad vendor id '{v}'"))?;
+        let pid =
+            u16::from_str_radix(p.trim(), 16).with_context(|| format!("bad product id '{p}'"))?;
+        Ok((vid, pid))
+    }
 }
 
 fn default_inputs() -> BTreeMap<String, u16> {
@@ -38,6 +68,7 @@ impl Default for Config {
             inputs: default_inputs(),
             toggle: default_toggle(),
             hotkeys: BTreeMap::new(),
+            usb: None,
         }
     }
 }
@@ -82,6 +113,13 @@ impl Config {
         for name in &self.toggle {
             self.resolve_input(name)
                 .with_context(|| format!("`toggle` references '{name}'"))?;
+        }
+        if let Some(usb) = &self.usb {
+            usb.ids().context("in [usb]")?;
+            for name in [&usb.on_connect, &usb.on_disconnect].into_iter().flatten() {
+                self.resolve_input(name)
+                    .with_context(|| format!("[usb] references '{name}'"))?;
+            }
         }
         Ok(())
     }

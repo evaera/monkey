@@ -37,6 +37,10 @@ pub enum Command {
     Toggle,
     /// Watch the config's global hotkeys
     Listen,
+    /// Switch input when the configured USB device connects/disconnects
+    Watch,
+    /// List connected USB devices (to find a VID:PID)
+    Usb,
     /// Run `monkey listen` at login (--remove to undo)
     Startup {
         /// Remove the startup entry instead of adding it

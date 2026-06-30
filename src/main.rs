@@ -1,8 +1,13 @@
+// Build on the Windows GUI subsystem so a logon-launched daemon never allocates a
+// console window. `attach_parent_console` reattaches to a terminal for CLI use.
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod cli;
 mod config;
 mod hotkey;
 mod monitor;
 mod startup;
+mod usb;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
@@ -13,6 +18,11 @@ use std::path::Path;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
+    // GUI-subsystem builds have no console of their own; if we were launched from a
+    // terminal, borrow its console so output (and clap's help/errors) is visible.
+    #[cfg(windows)]
+    attach_parent_console();
+
     // clap handles --help/--version and usage errors itself
     match run(Cli::parse()) {
         Ok(()) => ExitCode::SUCCESS,
@@ -21,6 +31,15 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+// Reattach stdio to the launching terminal's console, if there is one. When
+// started from the registry at logon there is no parent console and this is a
+// harmless no-op, leaving the process windowless.
+#[cfg(windows)]
+fn attach_parent_console() {
+    use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
+    unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
 }
 
 fn run(cli: Cli) -> Result<()> {
@@ -39,6 +58,8 @@ fn run(cli: Cli) -> Result<()> {
         Command::Set { input } => cmd_set(&cfg, model, &input),
         Command::Toggle => cmd_toggle(&cfg, model),
         Command::Listen => hotkey::listen(&cfg, model),
+        Command::Watch => usb::watch(&cfg, model),
+        Command::Usb => usb::list(),
         Command::Startup { remove } => cmd_startup(&cfg, config.as_deref(), remove),
         Command::Switch(args) => match args.as_slice() {
             [input] => cmd_set(&cfg, model, input),
@@ -52,9 +73,11 @@ fn cmd_startup(cfg: &Config, config_path: Option<&Path>, remove: bool) -> Result
         println!("removed startup entry ({})", startup::uninstall()?);
         return Ok(());
     }
-    if cfg.hotkeys.is_empty() {
+    // `watch` if a USB device is configured, otherwise the hotkey daemon.
+    let mode = if cfg.usb.is_some() { "watch" } else { "listen" };
+    if mode == "listen" && cfg.hotkeys.is_empty() {
         eprintln!(
-            "monkey: warning: config has no [hotkeys], so listen exits at once; add some and re-run"
+            "monkey: warning: no [usb] or [hotkeys] in config, so the daemon exits at once; add one and re-run"
         );
     }
     let exe = std::env::current_exe().context("finding the monkey executable")?;
@@ -62,8 +85,8 @@ fn cmd_startup(cfg: &Config, config_path: Option<&Path>, remove: bool) -> Result
         .map(std::path::absolute)
         .transpose()
         .context("resolving the config path")?;
-    let at = startup::install(&exe, config_abs.as_deref())?;
-    println!("registered `monkey listen` at login ({at})");
+    let at = startup::install(&exe, config_abs.as_deref(), mode)?;
+    println!("registered `monkey {mode}` at login ({at})");
     println!("takes effect at your next login");
     #[cfg(target_os = "macos")]
     println!("start it now with: launchctl load \"{at}\"");
