@@ -73,13 +73,18 @@ fn cmd_startup(cfg: &Config, config_path: Option<&Path>, remove: bool) -> Result
         println!("removed startup entry ({})", startup::uninstall()?);
         return Ok(());
     }
-    // `watch` if a USB device is configured, otherwise the hotkey daemon.
-    let mode = if cfg.usb.is_some() { "watch" } else { "listen" };
-    if mode == "listen" && cfg.hotkeys.is_empty() {
+    // `listen` is the full daemon: hotkeys plus the USB watcher when [usb] is
+    // configured. Fall back to `watch` only when there are no hotkeys to bind.
+    let mode = if !cfg.hotkeys.is_empty() {
+        "listen"
+    } else if cfg.usb.is_some() {
+        "watch"
+    } else {
         eprintln!(
             "monkey: warning: no [usb] or [hotkeys] in config, so the daemon exits at once; add one and re-run"
         );
-    }
+        "listen"
+    };
     let exe = std::env::current_exe().context("finding the monkey executable")?;
     let config_abs = config::resolve_path(config_path)
         .map(std::path::absolute)

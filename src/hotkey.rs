@@ -39,6 +39,19 @@ pub fn listen(config: &Config, model: Option<&str>) -> Result<()> {
     }
     println!("listening for {} hotkey(s), ctrl+c to quit", bindings.len());
 
+    // One daemon handles every trigger. If a USB device is also configured,
+    // follow it on a background thread while this thread runs the hotkey loop,
+    // which must own the main thread for the platform event pump.
+    if config.usb.is_some() {
+        let cfg = config.clone();
+        let model = model.map(str::to_owned);
+        std::thread::spawn(move || {
+            if let Err(e) = crate::usb::watch(&cfg, model.as_deref()) {
+                eprintln!("usb watch stopped: {e:#}");
+            }
+        });
+    }
+
     // owned so the closure can outlive `listen` (macOS keeps it in a callback)
     let model = model.map(str::to_owned);
     run(move |id| {
