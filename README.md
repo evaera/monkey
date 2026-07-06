@@ -18,8 +18,10 @@ monkey list           every display and its current input
 monkey set <input>    switch by name (from [inputs]) or a raw number
 monkey <input>        shorthand for set, e.g. `monkey usbc`, `monkey 16`
 monkey toggle         flip between the two `toggle` inputs
-monkey listen         watch the config's global hotkeys
-monkey startup        run `monkey listen` at login (--remove to undo)
+monkey listen         daemon: global hotkeys, plus the [usb] watcher if set
+monkey watch          just the [usb] watcher
+monkey usb            list connected USB devices (to find a VID:PID)
+monkey startup        run the daemon at login (--remove to undo)
 ```
 
 `-m/--model <substr>` picks the display by EDID model name; `-c/--config <path>`
@@ -44,6 +46,14 @@ hdmi2 = 18
 [hotkeys]                # combo -> input, for `monkey listen`
 "ctrl+alt+1" = "dp"
 "ctrl+alt+2" = "usbc"
+
+[usb]                    # follow a USB device across machines
+device = "3297:1977"     # VID:PID, from `monkey usb`
+on_connect = "dp"        # switch here when it appears
+on_disconnect = "usbc"   # hand off when it leaves
+wake_on_connect = true   # wake this machine's screen first (see below)
+# wake_on_disconnect = false
+# wake_settle_ms = 500   # panel light-up time before the switch
 ```
 
 Names are arbitrary keys in `[inputs]`, so this works on any monitor once its
@@ -63,10 +73,26 @@ that does not move video, bind each machine to switch *away*: the DisplayPort
 machine runs `usbc`, the USB-C machine runs `dp`. Whichever machine is on screen
 is the one that can hand off.
 
+## Following the keyboard
+
+With `[usb]` configured, the daemon polls for a USB device (the keyboard on the
+KM switch) and switches the monitor when it connects or disconnects, so the
+video follows the keyboard automatically. `monkey listen` runs this alongside
+the hotkeys in one daemon; `monkey watch` runs it alone. `monkey usb` prints
+the VID:PID pairs to put in `device`.
+
+`wake_on_connect` / `wake_on_disconnect` wake this machine's screen on the
+event that hands it the monitor. Without this, a machine whose displays have
+gone to sleep offers no signal, and the monitor bounces straight back to the
+other input. Windows wakes via a synthetic one-pixel mouse nudge; macOS runs
+`caffeinate -u`. `wake_settle_ms` (default 500) is how long the panel gets to
+light up before the input switch is sent.
+
 ## Hotkeys
 
 `monkey listen` registers `[hotkeys]` system-wide and switches on each press.
-`monkey startup` makes it run at login (an `HKCU\...\Run` entry on Windows, a
+`monkey startup` makes the daemon run at login: `listen` when hotkeys are
+configured, `watch` when only `[usb]` is (an `HKCU\...\Run` entry on Windows, a
 LaunchAgent on macOS, both pinned to the config in use); `monkey startup --remove`
 undoes it. On Windows the logon instance hides its console window. Alternatively, bind the commands in an existing hotkey tool,
 such as AutoHotkey `^!2::Run('monkey.exe usbc')` or skhd `cmd + alt - 1 : monkey dp`.
