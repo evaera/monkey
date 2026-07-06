@@ -34,9 +34,14 @@ pub fn watch(config: &Config, model: Option<&str>) -> Result<()> {
         .as_deref()
         .map(|s| config.resolve_input(s))
         .transpose()?;
-    if on_connect.is_none() && on_disconnect.is_none() {
-        bail!("[usb] needs on_connect and/or on_disconnect");
+    if on_connect.is_none()
+        && on_disconnect.is_none()
+        && !usb.wake_on_connect
+        && !usb.wake_on_disconnect
+    {
+        bail!("[usb] needs on_connect/on_disconnect and/or wake_on_connect/wake_on_disconnect");
     }
+    let wake_settle = Duration::from_millis(usb.wake_settle_ms);
 
     let mut present = device_present(vid, pid)?;
     let model = model.map(str::to_owned);
@@ -56,9 +61,22 @@ pub fn watch(config: &Config, model: Option<&str>) -> Result<()> {
             continue;
         }
         present = now;
+        let event = if now { "connected" } else { "disconnected" };
+        // wake first, so the input switch (ours or the other machine's) finds
+        // this output already live
+        let wake = if now {
+            usb.wake_on_connect
+        } else {
+            usb.wake_on_disconnect
+        };
+        if wake {
+            match crate::wake::wake() {
+                Ok(()) => std::thread::sleep(wake_settle),
+                Err(e) => eprintln!("USB {event}: screen wake failed: {e:#}"),
+            }
+        }
         let target = if now { on_connect } else { on_disconnect };
         let Some(value) = target else { continue };
-        let event = if now { "connected" } else { "disconnected" };
         match switch(model.as_deref(), value) {
             Ok(label) => println!("USB {event} -> input {value} on {label}"),
             Err(e) => eprintln!("USB {event}: switch to {value} failed: {e:#}"),

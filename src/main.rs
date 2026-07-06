@@ -8,6 +8,7 @@ mod hotkey;
 mod monitor;
 mod startup;
 mod usb;
+mod wake;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;

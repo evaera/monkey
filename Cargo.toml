@@ -13,7 +13,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"
 
 [target."cfg(windows)".dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_Console"] }
+windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_Foundation", "Win32_System_Console", "Win32_System_Power"] }
 winreg = "0.52"
 
 [profile.release]

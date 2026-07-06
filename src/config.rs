@@ -30,6 +30,15 @@ pub struct UsbWatch {
     pub on_connect: Option<String>,
     #[serde(default)]
     pub on_disconnect: Option<String>,
+    /// Wake this machine's screen on the event that hands it the monitor, so
+    /// the monitor finds a live signal instead of a sleeping output.
+    #[serde(default)]
+    pub wake_on_connect: bool,
+    #[serde(default)]
+    pub wake_on_disconnect: bool,
+    /// How long to let the panel light up after a wake before switching input.
+    #[serde(default = "default_wake_settle_ms")]
+    pub wake_settle_ms: u64,
 }
 
 impl UsbWatch {
@@ -46,6 +55,10 @@ impl UsbWatch {
             u16::from_str_radix(p.trim(), 16).with_context(|| format!("bad product id '{p}'"))?;
         Ok((vid, pid))
     }
+}
+
+fn default_wake_settle_ms() -> u64 {
+    500
 }
 
 fn default_inputs() -> BTreeMap<String, u16> {
@@ -192,6 +205,20 @@ mod tests {
         assert_eq!(c.model.as_deref(), Some("Dell"));
         assert_eq!(c.resolve_input("l").unwrap(), 17);
         assert_eq!(c.toggle_target(17).unwrap(), 18);
+    }
+
+    #[test]
+    fn usb_wake() {
+        let c = cfg_from(
+            "[usb]\ndevice = \"3297:1977\"\non_connect = \"dp\"\nwake_on_connect = true\n",
+        );
+        let usb = c.usb.unwrap();
+        assert!(usb.wake_on_connect);
+        assert!(!usb.wake_on_disconnect);
+        assert_eq!(usb.wake_settle_ms, 500);
+
+        let c = cfg_from("[usb]\ndevice = \"1:2\"\non_connect = \"dp\"\nwake_settle_ms = 1200\n");
+        assert_eq!(c.usb.unwrap().wake_settle_ms, 1200);
     }
 
     #[test]
