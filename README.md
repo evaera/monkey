@@ -96,3 +96,7 @@ configured, `watch` when only `[usb]` is (an `HKCU\...\Run` entry on Windows, a
 LaunchAgent on macOS, both pinned to the config in use); `monkey startup --remove`
 undoes it. On Windows the logon instance hides its console window. Alternatively, bind the commands in an existing hotkey tool,
 such as AutoHotkey `^!2::Run('monkey.exe usbc')` or skhd `cmd + alt - 1 : monkey dp`.
+
+## License
+
+[MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
